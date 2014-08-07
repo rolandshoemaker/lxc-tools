@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import lxc
 import os
@@ -20,14 +20,15 @@ class colors:
     FAIL = '\033[91m'
     ENDC = '\033[0m'
 
-if not os.geteuid() == 0:
-	print(colors.WARNING+"base-lxc is a privileged container."+colors.ENDC)
-	sys.exit(1)
-
 dnsdomain = "home.local"
 baseIp = "192.168.1.190"
 dnsContainer = "haku-lxc"
-base = lxc.Container("base-lxc")
+baseName = "base-lxc"
+base = lxc.Container(baseName)
+
+if not os.geteuid() == 0:
+	print(colors.WARNING+baseName+" is a privileged container."+colors.ENDC)
+	sys.exit(1)
 
 print(colors.OKGREEN+"Updating base container..."+colors.ENDC)
 base.start()
@@ -44,7 +45,7 @@ if clone.defined:
 	print(colors.WARNING+"The container name: "+hostname+", is already in use."+colors.ENDC)
 	sys.exit(1)
 
-print(colors.OKGREEN+"Cloning base-lxc to "+hostname+"..."+colors.ENDC)
+print(colors.OKGREEN+"Cloning "+baseName+" to "+hostname+"..."+colors.ENDC)
 clone = base.clone(hostname, flags=lxc.LXC_CLONE_SNAPSHOT)
 print(colors.OKGREEN+"Starting "+hostname+"..."+colors.ENDC)
 clone.start()
