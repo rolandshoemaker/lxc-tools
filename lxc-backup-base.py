@@ -40,6 +40,11 @@ backupFolder = backupRoot+str(day)+"."+baseName+"/"
 base = lxc.Container(baseName)
 baseConfig = base.get_config_path()+"/"+baseName+"/config"
 
+if not os.path.exists(backupFolder):
+	print("Building directory structure")
+	for i in range(0, 7):
+		if not os.path.exists(backupRoot+str(i)+"."+baseName+"/"):
+			os.makedirs(backupRoot+str(i)+"."+baseName+"/")
 
 print("Starting "+baseName)
 base.start()
@@ -74,6 +79,10 @@ while 1:
 
 dpkgList = str(data).split("\\n")
 print("Writing dpkg list to "+backupFolder+"dpkg")
+try:
+	os.remove(backupFolder+"dpkg")
+except OSError:
+	pass
 with open(backupFolder+"dpkg", "w+") as file:
 	for package in dpkgList:
 		package = re.sub('b*\'', '', package)
@@ -82,9 +91,27 @@ with open(backupFolder+"dpkg", "w+") as file:
 conn.close()
 recieve.close()
 
-# copy config file
-print("Copying lxc configuration file for "+baseName)
-shutil.copyfile(baseConfig, backupFolder+"config")
+if not base.shutdown(30):
+        base.stop()
 
 # snapshot of container
+print("Creating snapshot of "+baseName)
+snapshotName = str(day)+"."+baseName
+if lxc.Container(snapshotName):
+	destroyme = lxc.Container(snapshotName)
+	destroyme.destroy()
+baseBackup = base.clone(snapshotName, flags=lxc.LXC_CLONE_SNAPSHOT)
+snaps = baseBackup.snapshot_list()
 
+if snapshotName in snaps:
+	baseBackup.snapshot_destroy(snapshotName)
+
+baseBackup.snapshot(snapshotName)
+baseBackup.destroy()
+
+print("Soft-linking snapshot to "+backupFolder+"snap/")
+try:
+	os.remove(backupFolder+"snap")
+except OSError:
+	pass
+os.symlink("/var/lib/lxcsnaps/"+snapshotName+"/snap0", backupFolder+"snap")
