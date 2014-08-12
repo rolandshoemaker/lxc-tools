@@ -4,6 +4,9 @@ import lxc
 import os
 import sys
 import ipaddress
+import pprint
+import subprocess
+import time
 
 def is_valid_ipv4(ip):
 	try:
@@ -11,6 +14,42 @@ def is_valid_ipv4(ip):
 		return True
 	except ValueError:
 		return False
+
+def write_bind(container, aRecord, reverseRecord):
+	if container:
+		rootfs = container.get_config_item("lxc.rootfs")
+		bindpath = "%s/etc/bind/" % rootfs
+		if aRecord:
+			with open(bindpath+"db."+dnsdomain, "a") as fd:
+				fd.write(aRecord)
+		if reverseRecord:
+			with open(bindpath+"db."+reversedomain, "a") as fd:
+				fd.write(reverseRecord)
+
+def execute(container, cmd, cwd="/"):
+    def run_command(args):
+        cmd, cwd = args
+
+        os.environ['PATH'] = '/usr/sbin:/usr/bin:/sbin:/bin'
+        os.environ['HOME'] = '/root'
+
+        return subprocess.call(cmd, cwd=cwd)
+
+    if isinstance(cmd, str):
+        rootfs = container.get_config_item("lxc.rootfs")
+        cmdpath = "%s/tmp/exec_script" % rootfs
+        with open(cmdpath, "w+") as fd:
+            fd.write(cmd)
+        os.chmod(cmdpath, 0o755)
+        cmd = ["/tmp/exec_script"]
+
+    print(" ==> Executing: \"%s\" in %s" % (" ".join(cmd), cwd))
+    retval = container.attach_wait(run_command,
+                                   (cmd, cwd),
+                                   env_policy=lxc.LXC_ATTACH_CLEAR_ENV)
+
+    if retval != 0:
+        raise Error("Failed to run the command.")
 
 class colors:
     HEADER = '\033[95m'
@@ -21,17 +60,21 @@ class colors:
     ENDC = '\033[0m'
 
 dnsdomain = "home.local"
+reversedomain = "192"
 baseIp = "192.168.1.190"
 dnsContainer = "haku-lxc"
 baseName = "base-lxc"
+netmask = "255.255.255.0"
 base = lxc.Container(baseName)
 
 if not os.geteuid() == 0:
 	print(colors.WARNING+baseName+" is a privileged container."+colors.ENDC)
 	sys.exit(1)
-
-print(colors.OKGREEN+"Updating base container..."+colors.ENDC)
+print(colors.OKGREEN+"Starting base image"+colors.ENDC)
 base.start()
+print(colors.OKGREEN+"Waiting for network to come up"+colors.ENDC)
+time.sleep(10)
+print(colors.OKGREEN+"Updating base container packages..."+colors.ENDC)
 base.attach_wait(lxc.attach_run_command, ["apt-get", "update"])
 base.attach_wait(lxc.attach_run_command, ["apt-get", "dist-upgrade", "-y"])
 base.attach_wait(lxc.attach_run_command, ["apt-get", "upgrade", "-y"])
@@ -59,24 +102,32 @@ while True:
 
 if not type(ip) == 'undefined':
 	print(colors.OKGREEN+"Setting "+hostname+"s IP to "+ip+colors.ENDC)
-	clone.attach_wait(lxc.attach_run_command, ["ifconfig", "eth0", ip, "netmask", netmask, "up"])
-	clone.attach_wait(lxc.attach_run_command, ["sed", "-i.bak", "s/"+baseIp+"/"+ip+"/g", "/etc/network/interfaces", "&&", "rm", "interfaces.bak"])
-	clone.attach_wait(lxc.attach_run_command, ["ifdown", "eth0", "&&", "ifup", "eth0"])
+
+	execute(clone, ["sed", "-i.bak", "-e", "s/192.168.1.190/"+ip+"/g", "/etc/network/interfaces"])
+
+	if not clone.shutdown(30):
+		clone.stop()
+	clone.start()	
 
 while True:
 	bind = input("[add records to bind server? Y/n]# ")
-	if bind n in ['y', 'n', 'Y', 'N', '']:
+	if bind in ['y', 'n', 'Y', 'N', '']:
                 break
-        else:
+	else:
                 print(colors.WARNING+"Either y or n"+colors.ENDC)
 
 if bind == 'Y' or bind == 'y' or bind == '':
 	dnsd = lxc.Container(dnsContainer)
 	octet = ip.split('.')
+
 	print(colors.OKGREEN+"Adding DNS records to "+dnsContainer+" for "+hostname+colors.ENDC)
-	dnsd.attach_wait(lxc.attach_run_command, ["echo", hostname, "IN", "A", ip, ">>", "/etc/bind/db."+dnsdomain])
-	dnsd.attach_wait(lxc.attach_run_command, ["echo", octet[3], "IN", "PTR", hostname+dnsdomain+".", ">>", "/etc/bind/db.192"])
+
+	aRecord = hostname+"\t\tIN\tA\t"+ip
+	reverseRecord = octet[3]+"\tIN\tPTR\t"+hostname+"."+dnsdomain+"."
+	write_bind(dnsd, aRecord, reverseRecord)
+
 	print(colors.OKGREEN+"Restarting bind9..."+colors.ENDC)
+
 	dnsd.attach_wait(lxc.attach_run_command, ["service", "bind9", "restart"])
 
 while True:
