@@ -15,7 +15,7 @@ def is_valid_ipv4(ip):
 	except ValueError:
 		return False
 
-def write_bind(container, aRecord, reverseRecord):
+def write_bind(container, aRecord=None, reverseRecord=None):
 	if container:
 		rootfs = container.get_config_item("lxc.rootfs")
 		bindpath = "%s/etc/bind/" % rootfs
@@ -129,6 +129,21 @@ if bind == 'Y' or bind == 'y' or bind == '':
 	print(colors.OKGREEN+"Restarting bind9..."+colors.ENDC)
 
 	dnsd.attach_wait(lxc.attach_run_command, ["service", "bind9", "restart"])
+
+while True:
+	auto = input("[set "+hostname+" to run automatically? Y/n]# ")
+	if auto in ['y', 'n', 'Y', 'N', '']:
+		break
+	else
+		print(colors.WARNING+"Either y or n"+colors.ENDC)
+
+if auto in ['y', 'Y', '']:
+	if not clone.shutdown(30):
+		clone.stop()
+	clone.set_config_item("lxc.start.auto", "1")
+	clone.set_config_item("lxc.start.delay", "5")
+	clone.save_config()
+	clone.start()
 
 while True:
 	question = input("[leave running? Y/n (C to drop into a shell on "+hostname+")]# ")
