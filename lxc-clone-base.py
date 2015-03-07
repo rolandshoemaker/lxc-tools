@@ -21,10 +21,10 @@ def write_bind(container, aRecord=None, reverseRecord=None):
 		bindpath = "%s/etc/bind/" % rootfs
 		if aRecord:
 			with open(bindpath+"db."+dnsdomain, "a") as fd:
-				fd.write(aRecord)
+				fd.write("\n"+aRecord)
 		if reverseRecord:
 			with open(bindpath+"db."+reversedomain, "a") as fd:
-				fd.write(reverseRecord)
+				fd.write("\n"+reverseRecord)
 
 def execute(container, cmd, cwd="/"):
     def run_command(args):
@@ -134,7 +134,7 @@ while True:
 	auto = input("[set "+hostname+" to run automatically? Y/n]# ")
 	if auto in ['y', 'n', 'Y', 'N', '']:
 		break
-	else
+	else:
 		print(colors.WARNING+"Either y or n"+colors.ENDC)
 
 if auto in ['y', 'Y', '']:
