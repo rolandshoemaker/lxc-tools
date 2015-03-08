@@ -65,8 +65,8 @@ def run_script(container, script, cwd="/", interpreter="bash"):
     if retval != 0:
         error("Failed to run the command.")
 
-def rename(container, new_name, force_shutdown=False, restart=True):
-    sed_rpl_cmd = ["sed", "-i", "'s/%s/%s/g'" % (container.name, new_name), "/etc/hostname"]]
+def rename_container(container, new_name, force_shutdown=False, restart=True):
+    sed_host_rpl_cmd = ["sed", "-i", "'s/%s/%s/g'" % (container.name, new_name), "/etc/hostname"]]
 
     # before we do anything, make sure these isn't already a container duh
     if any([new_name == c.name for c in lxc.list_containers(as_object=True)]):
@@ -79,7 +79,7 @@ def rename(container, new_name, force_shutdown=False, restart=True):
     if not container.running:
         if not start(container):
             error("couldn't start container %s" % (container.name))
-    container.attach_wait(_run_command, (sed_rpl_cmd, "/"), env_policy=lxc.LXC_ATTACH_CLEAR_ENV)
+    container.attach_wait(_run_command, (sed_host_rpl_cmd, "/"), env_policy=lxc.LXC_ATTACH_CLEAR_ENV)
 
     # shutdown container before moving
     if container.running:
@@ -98,6 +98,23 @@ def rename(container, new_name, force_shutdown=False, restart=True):
     if restart:
         if not start(container):
             error("couldn't start container %s" % (container.name))
+
+def dns_freeze_reload_thaw(container, zone):
+    commands = [c+[zone] for c in [["rndc", "freeze"], ["rndc", "reload"], ["rndc", "thaw"]]]
+    for cmd in commands:
+        container.attach_wait(_run_command, (cmd, "/"), env_policy=lxc.LXC_ATTACH_CLEAR_ENV)
+
+def dns_remove_record(container, zone, key):
+    pass
+
+def dns_add_record(container, zone, key):
+    pass
+
+def dns_replace_record(container, zone, key, new_name=None, new_ipv4=None):
+    pass
+
+def update_and_clone(container, new_name, new_ipv4):
+    pass
 
 # ssh_cluster(get_running(), local_user="rolands")
 # run_script(get_running()[0], "ls")
