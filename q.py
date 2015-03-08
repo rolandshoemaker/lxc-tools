@@ -4,7 +4,7 @@ import os, sys
 
 SCRIPT = """
 #!/bin/bash
-KEYTT="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDGNsr1tbqH4BSGql1VNzSA9ZVi4Fp5LsUtFdQf3DoNL+e5OA/AU+tW1DBu28iYhdwmLn34yfFs7NdbbbDYH9CwIVOaegBcmx7z8C/YO+NsoORL3bCB2NJZa9LO/v+CsULOArklpme21v+HJbG/uiF5cKAm8Nj7kMh1D/zTW6BkUWbUxkD2wNsFUGgjjCmjnRF2ED5YJPmjt4EZaqIXpgNsj6AjYHQPY6i09O8iG5ntekLOjoZ5s24lEq2gUMl6qc1EaHDIXVOHtohw5hdSWJvHbonXUC5Yfuq6+ZSZHI79PXheUfekNW1xEAmMbsxLC4jW39Ze1gFfPaCRRQPfTMS1 rolands@kamaji"
+KEYTT=""
 
 if [ -d "=p" ]; then
    rm -rf "=p"
